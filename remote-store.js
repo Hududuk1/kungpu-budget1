@@ -1,5 +1,4 @@
 (function () {
-  let sharedToken = "";
   let profileToken = "";
   let pollTimer = null;
   let lastVersion = "";
@@ -21,32 +20,13 @@
     return { configured: true, ...(await request("auth/status", {}, "")) };
   }
 
-  async function authenticateShared(password, setup = false) {
+  async function authenticateProfile(profile, password, setup = false) {
     const data = await request("auth", {
       method: "POST",
-      body: JSON.stringify({ action: setup ? "setup_household" : "verify_shared", password })
+      body: JSON.stringify({ action: setup ? "setup_profile" : "login_profile", profile, password })
     }, "");
-    sharedToken = data.token;
-    return data;
-  }
-
-  async function authenticateProfile(profile, password, setup = false, sharedPassword = "") {
-    const data = await request("auth", {
-      method: "POST",
-      body: JSON.stringify({
-        action: setup ? "setup_profile" : "login_profile",
-        profile, password, sharedPassword
-      })
-    }, sharedToken);
     profileToken = data.token;
     return data;
-  }
-
-  async function resetProfile(profile, sharedPassword, password) {
-    return request("auth", {
-      method: "POST",
-      body: JSON.stringify({ action: "reset_profile", profile, sharedPassword, password })
-    }, "");
   }
 
   async function loadAll() {
@@ -103,9 +83,7 @@
   window.remoteStore = {
     configured: true,
     status,
-    authenticateShared,
     authenticateProfile,
-    resetProfile,
     loadAll,
     saveEntry,
     deleteEntry,

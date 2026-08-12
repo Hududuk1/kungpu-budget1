@@ -58,54 +58,38 @@ async function readToken(request, secret, kind) {
 }
 async function authRow(env) { return env.DB.prepare("SELECT * FROM household_auth WHERE id = 1").first(); }
 function profileStatus(row) { return { "꿍": Boolean(row?.kung_hash), "푸": Boolean(row?.pu_hash) }; }
+async function ensureAuthRow(env) {
+  let row = await authRow(env);
+  if (row) return row;
+  const secret = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+  await env.DB.prepare("INSERT OR IGNORE INTO household_auth (id, app_secret, updated_at) VALUES (1, ?, ?)")
+    .bind(secret, new Date().toISOString()).run();
+  return authRow(env);
+}
 
 async function handleAuth(request, env, path) {
-  const row = await authRow(env);
+  const row = await ensureAuthRow(env);
   if (path[1] === "status" && request.method === "GET") {
-    return json({ initialized: Boolean(row), profiles: profileStatus(row) });
+    return json({ initialized: true, profiles: profileStatus(row) });
   }
   if (request.method !== "POST") return json({ message: "허용되지 않은 요청입니다." }, 405);
   let body;
   try { body = await request.json(); } catch { return json({ message: "요청 형식이 올바르지 않습니다." }, 400); }
   const password = String(body.password || "");
   if ((body.action || "").startsWith("setup") && password.length < 4) return json({ message: "비밀번호는 4자 이상이어야 합니다." }, 400);
-
-  if (body.action === "setup_household") {
-    if (row) return json({ message: "이미 공동 비밀번호가 설정되어 있습니다." }, 409);
-    const value = await newPassword(password);
-    await env.DB.prepare("INSERT INTO household_auth (id, shared_salt, shared_hash, updated_at) VALUES (1, ?, ?, ?)")
-      .bind(value.salt, value.hash, new Date().toISOString()).run();
-    return json({ ok: true, token: await createToken({ kind: "shared" }, value.hash), profiles: { "꿍": false, "푸": false } });
-  }
-  if (!row) return json({ message: "먼저 공동 비밀번호를 설정해주세요." }, 400);
-
-  if (body.action === "verify_shared") {
-    if (!(await verifyPassword(password, row.shared_salt, row.shared_hash))) return json({ message: "공동 비밀번호가 올바르지 않습니다." }, 403);
-    return json({ ok: true, token: await createToken({ kind: "shared" }, row.shared_hash), profiles: profileStatus(row) });
-  }
   if (!validProfile(body.profile)) return json({ message: "프로필이 올바르지 않습니다." }, 400);
   const [saltColumn, hashColumn] = profileColumns(body.profile);
 
   if (body.action === "setup_profile") {
-    if (!(await readToken(request, row.shared_hash, "shared"))) return json({ message: "공동 인증이 필요합니다." }, 403);
     if (row[hashColumn]) return json({ message: "이미 개인 비밀번호가 설정되어 있습니다." }, 409);
     const value = await newPassword(password);
     await env.DB.prepare(`UPDATE household_auth SET ${saltColumn} = ?, ${hashColumn} = ?, updated_at = ? WHERE id = 1`)
       .bind(value.salt, value.hash, new Date().toISOString()).run();
-    return json({ ok: true, householdId: "default", token: await createToken({ kind: "profile", profile: body.profile }, row.shared_hash) });
+    return json({ ok: true, householdId: "default", token: await createToken({ kind: "profile", profile: body.profile }, row.app_secret) });
   }
   if (body.action === "login_profile") {
-    if (!(await readToken(request, row.shared_hash, "shared"))) return json({ message: "공동 인증이 필요합니다." }, 403);
     if (!(await verifyPassword(password, row[saltColumn], row[hashColumn]))) return json({ message: "개인 비밀번호가 올바르지 않습니다." }, 403);
-    return json({ ok: true, householdId: "default", token: await createToken({ kind: "profile", profile: body.profile }, row.shared_hash) });
-  }
-  if (body.action === "reset_profile") {
-    if (!(await verifyPassword(String(body.sharedPassword || ""), row.shared_salt, row.shared_hash))) return json({ message: "공동 비밀번호가 올바르지 않습니다." }, 403);
-    if (password.length < 4) return json({ message: "비밀번호는 4자 이상이어야 합니다." }, 400);
-    const value = await newPassword(password);
-    await env.DB.prepare(`UPDATE household_auth SET ${saltColumn} = ?, ${hashColumn} = ?, updated_at = ? WHERE id = 1`)
-      .bind(value.salt, value.hash, new Date().toISOString()).run();
-    return json({ ok: true });
+    return json({ ok: true, householdId: "default", token: await createToken({ kind: "profile", profile: body.profile }, row.app_secret) });
   }
   return json({ message: "알 수 없는 인증 요청입니다." }, 404);
 }
@@ -152,9 +136,9 @@ export async function onRequest({ request, env, params }) {
 
   if (path[0] === "receipts" && request.method === "GET" && path.length === 2) {
     const auth = await authRow(env);
-    if (!auth) return json({ message: "먼저 공동 비밀번호를 설정해주세요." }, 400);
+    if (!auth) return json({ message: "인증 설정을 불러오지 못했습니다." }, 500);
     const url = new URL(request.url);
-    const receiptToken = await readToken(new Request(request.url, { headers: { authorization: `Bearer ${url.searchParams.get("token") || ""}` } }), auth.shared_hash, "receipt");
+    const receiptToken = await readToken(new Request(request.url, { headers: { authorization: `Bearer ${url.searchParams.get("token") || ""}` } }), auth.app_secret, "receipt");
     const key = decodeURIComponent(path[1]);
     if (!receiptToken || receiptToken.key !== key || receiptToken.profile !== url.searchParams.get("profile") || Number(url.searchParams.get("expires")) < Date.now()) return json({ message: "영수증 링크가 만료되었습니다." }, 403);
     const receipt = await env.DB.prepare("SELECT content_type, data FROM receipts WHERE key = ? AND owner = ?").bind(key, receiptToken.profile).first();
@@ -164,7 +148,7 @@ export async function onRequest({ request, env, params }) {
   }
 
   const auth = await authRow(env);
-  const session = await readToken(request, auth?.shared_hash, "profile");
+  const session = await readToken(request, auth?.app_secret, "profile");
   if (!session || !validProfile(session.profile)) return json({ message: "다시 로그인해주세요." }, 401);
   const profile = session.profile;
 
@@ -212,7 +196,7 @@ export async function onRequest({ request, env, params }) {
     const key = decodeURIComponent(path[1]);
     const exists = await env.DB.prepare("SELECT 1 FROM receipts WHERE key = ? AND owner = ?").bind(key, profile).first();
     if (!exists) return json({ message: "영수증을 찾지 못했습니다." }, 404);
-    return json({ url: await signedReceiptUrl(request, auth.shared_hash, key, profile) });
+    return json({ url: await signedReceiptUrl(request, auth.app_secret, key, profile) });
   }
   return json({ message: "요청 경로를 찾지 못했습니다." }, 404);
 }

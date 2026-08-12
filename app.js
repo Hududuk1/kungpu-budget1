@@ -24,7 +24,6 @@ const DEMO = {
 const state = {
   profile: migrateProfile(localStorage.getItem("uri-profile")),
   pendingProfile: null,
-  sharedPassword: "",
   remoteStatus: null,
   currency: localStorage.getItem("uri-currency") || "KRW",
   filter: "all",
@@ -222,40 +221,11 @@ function setEntryType(type, selected) {
 function closeDialogs() { document.querySelectorAll("dialog[open]").forEach(d => d.close()); }
 
 function setupEvents() {
-  configureSharedGate().catch(showSetupError);
-  document.querySelector("#loginForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    const password = document.querySelector("#passwordInput").value;
-    if (!window.remoteStore?.configured) {
-      showSetupError(new Error("CLOUDFLARE_NOT_CONFIGURED"));
-      return;
-    }
-    try {
-      const setup = !state.remoteStatus?.initialized;
-      if (setup) {
-      const confirmation = document.querySelector("#sharedPasswordConfirm").value;
-      if (password !== confirmation) {
-        document.querySelector("#loginHint").textContent = "두 공동 비밀번호가 서로 달라요.";
-        return;
-      }
-      }
-      const result = await window.remoteStore.authenticateShared(password, setup);
-      state.sharedPassword = password;
-      state.remoteStatus = { initialized: true, profiles: result.profiles || { 꿍: false, 푸: false } };
-      document.querySelector("#loginScreen").classList.add("hidden");
-      document.querySelector("#profileScreen").classList.remove("hidden");
-    } catch (error) {
-      document.querySelector("#loginHint").textContent = friendlyError(error);
-    }
-  });
+  configureProfileGate().catch(showSetupError);
   document.querySelectorAll(".profile-choice").forEach(button => button.addEventListener("click", () => {
     openPersonalLogin(button.dataset.profile);
   }));
   document.querySelector("#personalForm").addEventListener("submit", submitPersonalLogin);
-  document.querySelector("#forgotPassword").addEventListener("click", () => {
-    document.querySelector("#resetForm").classList.toggle("hidden");
-  });
-  document.querySelector("#resetForm").addEventListener("submit", resetPersonalPassword);
   document.querySelector("#backToProfiles").addEventListener("click", showProfiles);
   document.querySelector("#profileButton").addEventListener("click", () => {
     document.querySelector("#app").classList.add("hidden");
@@ -291,26 +261,17 @@ function setupEvents() {
   document.querySelector("#downloadCsv").addEventListener("click", downloadCsv);
   document.querySelector("#downloadMemo").addEventListener("click", downloadMemo);
 }
-async function configureSharedGate() {
+async function configureProfileGate() {
   if (!window.remoteStore?.configured) {
     showSetupError(new Error("CLOUDFLARE_NOT_CONFIGURED"));
     return;
   }
   state.remoteStatus = await window.remoteStore.status();
-  const hasPassword = state.remoteStatus.initialized;
-  document.querySelector("#sharedConfirmRow").classList.toggle("hidden", hasPassword);
-  document.querySelector("#sharedPasswordConfirm").required = !hasPassword;
-  document.querySelector("#sharedSubmit").textContent = hasPassword ? "우리 가계부 열기" : "공동 비밀번호 설정";
-  document.querySelector("#loginHint").textContent = hasPassword
-    ? "공동 비밀번호를 입력한 뒤 꿍 또는 푸의 가계부를 선택하세요."
-    : "처음 사용할 공동 비밀번호를 설정해주세요.";
+  document.querySelector("#profileScreen").classList.remove("hidden");
 }
 function showSetupError(error) {
-  const missing = error?.message === "CLOUDFLARE_NOT_CONFIGURED";
-  document.querySelector("#sharedSubmit").disabled = missing;
-  document.querySelector("#loginHint").textContent = missing
-    ? "Cloudflare D1 연결 전입니다. 배포 설정을 확인해주세요."
-    : friendlyError(error);
+  document.querySelector("#profileScreen").classList.remove("hidden");
+  document.querySelector("#profileHint").textContent = friendlyError(error);
 }
 function friendlyError(error) {
   if (error?.message === "CLOUDFLARE_NOT_CONFIGURED") return "Cloudflare D1 연결이 필요합니다.";
@@ -319,7 +280,6 @@ function friendlyError(error) {
 function showProfiles() {
   document.querySelector("#personalScreen").classList.add("hidden");
   document.querySelector("#profileScreen").classList.remove("hidden");
-  document.querySelector("#resetForm").classList.add("hidden");
   document.querySelector("#personalHint").textContent = "";
 }
 function openPersonalLogin(profile) {
@@ -334,7 +294,6 @@ function openPersonalLogin(profile) {
   document.querySelector("#personalConfirmRow").classList.toggle("hidden", hasPassword);
   document.querySelector("#personalPasswordConfirm").required = !hasPassword;
   document.querySelector("#personalSubmit").textContent = hasPassword ? "내 가계부 열기" : "비밀번호 설정하고 시작";
-  document.querySelector("#forgotPassword").classList.toggle("hidden", !hasPassword);
   document.querySelector("#personalForm").reset();
   document.querySelector("#personalHint").textContent = "";
 }
@@ -351,31 +310,12 @@ async function submitPersonalLogin(event) {
     }
   }
   try {
-    await window.remoteStore.authenticateProfile(profile, password, !hasPassword, state.sharedPassword);
+    await window.remoteStore.authenticateProfile(profile, password, !hasPassword);
     state.remoteStatus.profiles[profile] = true;
     state.profile = profile;
     localStorage.setItem("uri-profile", profile);
     document.querySelector("#personalScreen").classList.add("hidden");
     await startApp();
-  } catch (error) {
-    document.querySelector("#personalHint").textContent = friendlyError(error);
-  }
-}
-async function resetPersonalPassword(event) {
-  event.preventDefault();
-  const shared = document.querySelector("#resetSharedPassword").value;
-  const password = document.querySelector("#resetPersonalPassword").value;
-  const confirmation = document.querySelector("#resetPersonalConfirm").value;
-  if (password !== confirmation) {
-    document.querySelector("#personalHint").textContent = "새 비밀번호 확인이 서로 달라요.";
-    return;
-  }
-  try {
-    await window.remoteStore.resetProfile(state.pendingProfile, shared, password);
-    state.remoteStatus.profiles[state.pendingProfile] = true;
-    document.querySelector("#resetForm").reset();
-    document.querySelector("#resetForm").classList.add("hidden");
-    document.querySelector("#personalHint").textContent = "개인 비밀번호를 재설정했어요. 새 비밀번호로 로그인해주세요.";
   } catch (error) {
     document.querySelector("#personalHint").textContent = friendlyError(error);
   }

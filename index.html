@@ -7,28 +7,10 @@
   <title>꿍푸씨의 가계부</title>
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png?v=9">
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/app-icon-192.png?v=9">
-  <link rel="manifest" href="./manifest.webmanifest?v=14">
-  <link rel="stylesheet" href="./styles.css?v=14">
+  <link rel="manifest" href="./manifest.webmanifest?v=15">
+  <link rel="stylesheet" href="./styles.css?v=15">
 </head>
 <body>
-  <div id="loginScreen" class="gate">
-    <div class="gate-card">
-      <div class="logo-mark">꿍푸씨</div>
-      <h1>꿍푸씨의<br>가계부</h1>
-      <p>우리의 하루와 미래를 함께 기록해요.</p>
-      <form id="loginForm">
-        <label id="sharedPasswordLabel">공동 비밀번호
-          <input id="passwordInput" type="password" minlength="4" autocomplete="current-password" required placeholder="4자 이상 입력">
-        </label>
-        <label id="sharedConfirmRow" class="hidden">공동 비밀번호 확인
-          <input id="sharedPasswordConfirm" type="password" minlength="4" autocomplete="new-password" placeholder="한 번 더 입력">
-        </label>
-        <button id="sharedSubmit" class="primary" type="submit">우리 가계부 열기</button>
-      </form>
-      <p id="loginHint" class="hint"></p>
-    </div>
-  </div>
-
   <div id="profileScreen" class="gate hidden">
     <div class="gate-card">
       <span class="eyebrow">이 휴대폰의 사용자</span>
@@ -38,6 +20,7 @@
         <button class="profile-choice" data-profile="꿍"><span>🍀</span>꿍</button>
         <button class="profile-choice soft" data-profile="푸"><span>🌿</span>푸</button>
       </div>
+      <p id="profileHint" class="hint"></p>
     </div>
   </div>
 
@@ -55,14 +38,6 @@
           <input id="personalPasswordConfirm" type="password" minlength="4" autocomplete="new-password" placeholder="한 번 더 입력">
         </label>
         <button id="personalSubmit" class="primary" type="submit">내 가계부 열기</button>
-      </form>
-      <button id="forgotPassword" class="link-button" type="button">개인 비밀번호를 잊었어요</button>
-      <form id="resetForm" class="reset-box hidden">
-        <p>공동 비밀번호를 확인하면 개인 비밀번호를 새로 설정할 수 있어요.</p>
-        <label>공동 비밀번호<input id="resetSharedPassword" type="password" required></label>
-        <label>새 개인 비밀번호<input id="resetPersonalPassword" type="password" minlength="4" required></label>
-        <label>새 비밀번호 확인<input id="resetPersonalConfirm" type="password" minlength="4" required></label>
-        <button class="secondary" type="submit">개인 비밀번호 재설정</button>
       </form>
       <p id="personalHint" class="hint"></p>
     </div>
@@ -214,7 +189,7 @@
 
   <div id="toast" class="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="./remote-store.js?v=14"></script>
-  <script src="./app.js?v=14"></script>
+  <script src="./remote-store.js?v=15"></script>
+  <script src="./app.js?v=15"></script>
 </body>
 </html>

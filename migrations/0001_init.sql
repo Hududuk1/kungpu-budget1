@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS household_auth (
   id INTEGER PRIMARY KEY CHECK (id = 1),
-  shared_salt TEXT NOT NULL,
-  shared_hash TEXT NOT NULL,
+  app_secret TEXT NOT NULL,
   kung_salt TEXT,
   kung_hash TEXT,
   pu_salt TEXT,
