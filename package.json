@@ -1,0 +1,14 @@
+{
+  "name": "kungpu-budget1",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev .",
+    "db:migrate:local": "wrangler d1 migrations apply kungpu-budget --local",
+    "db:migrate:remote": "wrangler d1 migrations apply kungpu-budget --remote",
+    "deploy": "wrangler pages deploy . --project-name kungpu-budget1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.107.1"
+  }
+}

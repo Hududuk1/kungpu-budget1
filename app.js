@@ -44,7 +44,7 @@ function migrateProfile(profile) {
   return profile === "나" ? "푸" : profile === "아내" ? "꿍" : profile;
 }
 async function persist() {
-  if (!window.remoteStore?.configured) throw new Error("SUPABASE_NOT_CONFIGURED");
+  if (!window.remoteStore?.configured) throw new Error("CLOUDFLARE_NOT_CONFIGURED");
   await window.remoteStore.saveSettings(state.data);
   render();
 }
@@ -227,7 +227,7 @@ function setupEvents() {
     event.preventDefault();
     const password = document.querySelector("#passwordInput").value;
     if (!window.remoteStore?.configured) {
-      showSetupError(new Error("SUPABASE_NOT_CONFIGURED"));
+      showSetupError(new Error("CLOUDFLARE_NOT_CONFIGURED"));
       return;
     }
     try {
@@ -293,7 +293,7 @@ function setupEvents() {
 }
 async function configureSharedGate() {
   if (!window.remoteStore?.configured) {
-    showSetupError(new Error("SUPABASE_NOT_CONFIGURED"));
+    showSetupError(new Error("CLOUDFLARE_NOT_CONFIGURED"));
     return;
   }
   state.remoteStatus = await window.remoteStore.status();
@@ -306,14 +306,14 @@ async function configureSharedGate() {
     : "처음 사용할 공동 비밀번호를 설정해주세요.";
 }
 function showSetupError(error) {
-  const missing = error?.message === "SUPABASE_NOT_CONFIGURED";
+  const missing = error?.message === "CLOUDFLARE_NOT_CONFIGURED";
   document.querySelector("#sharedSubmit").disabled = missing;
   document.querySelector("#loginHint").textContent = missing
-    ? "Supabase 연결 전입니다. config.js에 Project URL과 Publishable key를 입력해주세요."
+    ? "Cloudflare D1 연결 전입니다. 배포 설정을 확인해주세요."
     : friendlyError(error);
 }
 function friendlyError(error) {
-  if (error?.message === "SUPABASE_NOT_CONFIGURED") return "Supabase 연결 정보가 필요합니다.";
+  if (error?.message === "CLOUDFLARE_NOT_CONFIGURED") return "Cloudflare D1 연결이 필요합니다.";
   return error?.message || "요청을 처리하지 못했습니다.";
 }
 function showProfiles() {
@@ -410,7 +410,7 @@ async function saveTransaction(event) {
     owner: state.profile
   };
   try {
-    if (!window.remoteStore?.configured) throw new Error("SUPABASE_NOT_CONFIGURED");
+    if (!window.remoteStore?.configured) throw new Error("CLOUDFLARE_NOT_CONFIGURED");
     item.receiptPath = previous?.receiptPath;
     const receiptFile = document.querySelector("#keepReceipt").checked
       ? document.querySelector("#receiptInput").files[0]
@@ -425,7 +425,7 @@ async function deleteTransaction() {
   const item = state.data.transactions.find(t => t.id === id);
   if (!item || item.owner !== state.profile) return;
   try {
-    if (!window.remoteStore?.configured) throw new Error("SUPABASE_NOT_CONFIGURED");
+    if (!window.remoteStore?.configured) throw new Error("CLOUDFLARE_NOT_CONFIGURED");
     await window.remoteStore.deleteEntry(item);
     await reloadRemoteData();
     closeDialogs(); showToast("기록을 삭제했어요.");
