@@ -19,23 +19,11 @@ function fromBase64Url(value) {
 function validProfile(value) { return value === "꿍" || value === "푸"; }
 function profileColumns(profile) { return profile === "꿍" ? ["kung_salt", "kung_hash"] : ["pu_salt", "pu_hash"]; }
 
-async function passwordHash(password, salt) {
-  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromBase64Url(salt), iterations: 150000 }, key, 256);
-  return base64Url(bits);
-}
-async function newPassword(password) {
-  const salt = base64Url(crypto.getRandomValues(new Uint8Array(16)));
-  return { salt, hash: await passwordHash(password, salt) };
-}
 async function safeEqual(left, right) {
   if (!left || !right || left.length !== right.length) return false;
   let mismatch = 0;
   for (let index = 0; index < left.length; index += 1) mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
   return mismatch === 0;
-}
-async function verifyPassword(password, salt, expected) {
-  return Boolean(salt && expected && await safeEqual(await passwordHash(password, salt), expected));
 }
 async function signingKey(secret, usage) {
   return crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, usage);
@@ -58,6 +46,7 @@ async function readToken(request, secret, kind) {
 }
 async function authRow(env) { return env.DB.prepare("SELECT * FROM household_auth WHERE id = 1").first(); }
 function profileStatus(row) { return { "꿍": Boolean(row?.kung_hash), "푸": Boolean(row?.pu_hash) }; }
+function profileSalts(row) { return { "꿍": row?.kung_salt || null, "푸": row?.pu_salt || null }; }
 async function ensureAuthRow(env) {
   let row = await authRow(env);
   if (row) return row;
@@ -70,25 +59,25 @@ async function ensureAuthRow(env) {
 async function handleAuth(request, env, path) {
   const row = await ensureAuthRow(env);
   if (path[1] === "status" && request.method === "GET") {
-    return json({ initialized: true, profiles: profileStatus(row) });
+    return json({ initialized: true, profiles: profileStatus(row), salts: profileSalts(row) });
   }
   if (request.method !== "POST") return json({ message: "허용되지 않은 요청입니다." }, 405);
   let body;
   try { body = await request.json(); } catch { return json({ message: "요청 형식이 올바르지 않습니다." }, 400); }
-  const password = String(body.password || "");
-  if ((body.action || "").startsWith("setup") && password.length < 4) return json({ message: "비밀번호는 4자 이상이어야 합니다." }, 400);
+  const credential = String(body.credential || "");
+  const salt = String(body.salt || "");
+  if (!/^[A-Za-z0-9_-]{43}$/.test(credential)) return json({ message: "비밀번호 검증값이 올바르지 않습니다." }, 400);
   if (!validProfile(body.profile)) return json({ message: "프로필이 올바르지 않습니다." }, 400);
   const [saltColumn, hashColumn] = profileColumns(body.profile);
 
   if (body.action === "setup_profile") {
     if (row[hashColumn]) return json({ message: "이미 개인 비밀번호가 설정되어 있습니다." }, 409);
-    const value = await newPassword(password);
     await env.DB.prepare(`UPDATE household_auth SET ${saltColumn} = ?, ${hashColumn} = ?, updated_at = ? WHERE id = 1`)
-      .bind(value.salt, value.hash, new Date().toISOString()).run();
+      .bind(salt, credential, new Date().toISOString()).run();
     return json({ ok: true, householdId: "default", token: await createToken({ kind: "profile", profile: body.profile }, row.app_secret) });
   }
   if (body.action === "login_profile") {
-    if (!(await verifyPassword(password, row[saltColumn], row[hashColumn]))) return json({ message: "개인 비밀번호가 올바르지 않습니다." }, 403);
+    if (salt !== row[saltColumn] || !(await safeEqual(credential, row[hashColumn]))) return json({ message: "개인 비밀번호가 올바르지 않습니다." }, 403);
     return json({ ok: true, householdId: "default", token: await createToken({ kind: "profile", profile: body.profile }, row.app_secret) });
   }
   return json({ message: "알 수 없는 인증 요청입니다." }, 404);

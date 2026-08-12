@@ -2,6 +2,23 @@
   let profileToken = "";
   let pollTimer = null;
   let lastVersion = "";
+  let profileSalts = {};
+
+  function base64Url(bytes) {
+    let binary = "";
+    for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  function fromBase64Url(value) {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(normalized + "=".repeat((4 - normalized.length % 4) % 4));
+    return Uint8Array.from(binary, character => character.charCodeAt(0));
+  }
+  async function deriveCredential(password, salt) {
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromBase64Url(salt), iterations: 150000 }, key, 256);
+    return base64Url(bits);
+  }
 
   async function request(path, options = {}, token = profileToken) {
     const headers = new Headers(options.headers || {});
@@ -17,14 +34,22 @@
   }
 
   async function status() {
-    return { configured: true, ...(await request("auth/status", {}, "")) };
+    const data = await request("auth/status", {}, "");
+    profileSalts = data.salts || {};
+    return { configured: true, ...data };
   }
 
   async function authenticateProfile(profile, password, setup = false) {
+    const salt = setup
+      ? base64Url(crypto.getRandomValues(new Uint8Array(16)))
+      : profileSalts[profile];
+    if (!salt) throw new Error("로그인 정보를 새로 불러온 뒤 다시 시도해주세요.");
+    const credential = await deriveCredential(password, salt);
     const data = await request("auth", {
       method: "POST",
-      body: JSON.stringify({ action: setup ? "setup_profile" : "login_profile", profile, password })
+      body: JSON.stringify({ action: setup ? "setup_profile" : "login_profile", profile, salt, credential })
     }, "");
+    profileSalts[profile] = salt;
     profileToken = data.token;
     return data;
   }
