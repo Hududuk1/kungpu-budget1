@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kungpu-budget1",
+  "compatibility_date": "2026-08-12",
+  "pages_build_output_dir": ".",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kungpu-budget",
+      "database_id": "a146923d-dd51-4778-8a61-2722ea112083"
+    }
+  ]
+}

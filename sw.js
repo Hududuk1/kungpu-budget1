@@ -1,12 +1,11 @@
-const CACHE = "kungpu-budget-v13";
+const CACHE = "kungpu-budget-v15";
 const ASSETS = [
-  "./?v=13",
+  "./?v=15",
   "./index.html",
-  "./styles.css?v=13",
-  "./config.js?v=13",
-  "./remote-store.js?v=13",
-  "./app.js?v=13",
-  "./manifest.webmanifest?v=13",
+  "./styles.css?v=15",
+  "./remote-store.js?v=15",
+  "./app.js?v=15",
+  "./manifest.webmanifest?v=15",
   "./icons/apple-touch-icon.png?v=9",
   "./icons/app-icon-192.png?v=9",
   "./icons/app-icon-512.png?v=9"

@@ -9,9 +9,6 @@
 /sw.js
   Cache-Control: no-cache
 
-/config.js
-  Cache-Control: no-cache
-
 /app.js
   Cache-Control: public, max-age=300
 
