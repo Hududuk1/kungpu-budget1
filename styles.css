@@ -100,6 +100,20 @@ input:focus, select:focus { border-color: var(--pink); box-shadow: 0 0 0 3px var
 .simple-item { display: flex; justify-content: space-between; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: white; font-size: .85rem; }
 .download-card { margin-top: 26px; background: #fff9ed; }
 .download-card p { color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.card-import-card { margin-top: 26px; padding: 20px; border: 1px solid #cce3ce; border-radius: 22px; background: linear-gradient(145deg, #eef8e9, #fff); }
+.card-import-card h3 { margin: 4px 0 0; font-size: 1rem; }
+.card-import-card p, .dialog-description { color: var(--muted); font-size: .8rem; line-height: 1.55; }
+.status-badge { padding: 7px 10px; border-radius: 99px; background: #eee8e8; color: var(--muted); font-size: .7rem; font-weight: 900; }
+.status-badge.active { background: #dcefdc; color: var(--green-dark); }
+.credential-box { display: grid; gap: 8px; margin: 14px 0; padding: 14px; border-radius: 16px; background: white; border: 1px solid var(--line); }
+.credential-box label { margin: 0; }
+.credential-box input { font-size: .72rem; }
+.warning-text { margin: 2px 0 0; color: #a45c42; font-size: .72rem; }
+.shortcut-guide { margin: 16px 0; padding: 14px; border-radius: 16px; background: #fff9ed; font-size: .78rem; line-height: 1.55; }
+.shortcut-guide summary { cursor: pointer; font-weight: 900; color: var(--pink-dark); }
+.shortcut-guide ol { margin: 12px 0 0; padding-left: 20px; }
+.shortcut-guide code { padding: 1px 4px; border-radius: 5px; background: rgba(255,255,255,.8); }
+.test-result { margin-top: 12px; padding: 13px; border-radius: 14px; background: #edf7ef; color: #315d3e; font-size: .8rem; line-height: 1.55; }
 .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .fab { position: fixed; z-index: 4; left: 50%; bottom: calc(56px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: 58px; height: 58px; border: 5px solid var(--cream); border-radius: 50%; background: var(--pink); color: white; font-size: 2rem; line-height: 1; box-shadow: 0 9px 20px rgba(87,133,101,.3); }
 .bottom-nav { position: fixed; z-index: 3; left: 50%; bottom: 0; transform: translateX(-50%); display: grid; grid-template-columns: repeat(5, 1fr); width: min(100%, 480px); padding: 9px 12px calc(8px + env(safe-area-inset-bottom)); background: rgba(255,255,255,.96); border-top: 1px solid var(--line); backdrop-filter: blur(12px); }
@@ -109,6 +123,7 @@ input:focus, select:focus { border-color: var(--pink); box-shadow: 0 0 0 3px var
 .sheet { width: min(100%, 480px); max-height: 92dvh; margin: auto auto 0; padding: 0; border: 0; border-radius: 28px 28px 0 0; background: var(--cream); }
 .sheet::backdrop { background: rgba(37,24,28,.45); backdrop-filter: blur(2px); }
 .sheet form { max-height: 92dvh; overflow-y: auto; padding: 9px 18px calc(22px + env(safe-area-inset-bottom)); }
+.sheet-content { max-height: 92dvh; overflow-y: auto; padding: 9px 18px calc(22px + env(safe-area-inset-bottom)); }
 .sheet-handle { width: 44px; height: 5px; margin: 3px auto 18px; border-radius: 9px; background: #d8cecf; }
 .sheet h2 { margin: 0; font-size: 1.12rem; }
 .close-button { border: 0; background: transparent; font-size: 1.7rem; color: var(--muted); }

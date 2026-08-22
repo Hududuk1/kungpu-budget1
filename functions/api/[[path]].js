@@ -56,6 +56,119 @@ async function ensureAuthRow(env) {
   return authRow(env);
 }
 
+async function sha256(value) {
+  return base64Url(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
+}
+function normalizeMerchant(value) {
+  return String(value || "")
+    .replace(/^\[[^\]]+\]\s*/, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s*(주식회사|㈜)$/g, "")
+    .trim()
+    .slice(0, 60);
+}
+function categorizeMerchant(merchant) {
+  const rules = [
+    [/(스타벅스|투썸|메가커피|컴포즈|빽다방|커피|카페|cafe|coffee)/i, "카페"],
+    [/(이마트|홈플러스|롯데마트|코스트코|하나로마트|마트|마켓컬리|오아시스|식자재)/i, "장보기"],
+    [/(배달의민족|배민|요기요|쿠팡이츠|식당|치킨|피자|김밥|분식|국밥|버거|맥도날드|롯데리아|음식)/i, "식비"],
+    [/(택시|카카오T|우버|주유|SK에너지|GS칼텍스|S-OIL|현대오일|버스|지하철|철도|코레일|주차|하이패스)/i, "교통"],
+    [/(병원|의원|치과|한의원|약국|메디컬|건강)/i, "건강"],
+    [/(CGV|메가박스|롯데시네마|넷플릭스|유튜브|디즈니|왓챠|공연|영화|노래방|호텔|여행)/i, "여가"],
+    [/(백화점|무신사|지그재그|에이블리|올리브영|의류|패션|쇼핑)/i, "쇼핑"],
+    [/(관리비|전기|가스|수도|월세|통신|KT|SKT|LG유플러스)/i, "주거"],
+    [/(다이소|세탁|편의점|CU|GS25|세븐일레븐|생활)/i, "생활"]
+  ];
+  return rules.find(([pattern]) => pattern.test(merchant))?.[1] || "미분류";
+}
+function cardCompany(text) {
+  if (/신한|shinhan/i.test(text)) return "신한카드";
+  if (/현대|hyundai/i.test(text)) return "현대카드";
+  return "카드";
+}
+function parseOccurredAt(text, receivedAt) {
+  const received = new Date(receivedAt || Date.now());
+  const full = text.match(/(20\d{2})[./-](\d{1,2})[./-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  const short = text.match(/(?:^|\s)(\d{1,2})[./-](\d{1,2})\s+(\d{1,2}):(\d{2})(?:\s|$)/m);
+  let year = received.getFullYear();
+  let month;
+  let day;
+  let hour;
+  let minute;
+  if (full) [, year, month, day, hour, minute] = full;
+  else if (short) [, month, day, hour, minute] = short;
+  else return received.toISOString();
+  const result = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  if (!full && result.getTime() > received.getTime() + 7 * 86400000) result.setFullYear(result.getFullYear() - 1);
+  return result.toISOString();
+}
+function parseCardAlert(message, receivedAt) {
+  const text = String(message || "").replace(/\r/g, "").trim();
+  if (text.length < 8 || text.length > 3000) throw new Error("카드 알림 문자 전체를 입력해주세요.");
+  const company = cardCompany(text);
+  if (company === "카드") throw new Error("신한카드 또는 현대카드 문자로 확인되지 않습니다.");
+  const eventType = /(승인취소|결제취소|취소완료|매입취소|취소)/i.test(text) ? "cancellation" : "approval";
+  const amounts = [...text.matchAll(/(?:KRW\s*)?(\d{1,3}(?:,\d{3})+|\d{3,9})\s*원/gi)]
+    .map(match => Number(match[1].replace(/,/g, "")))
+    .filter(value => value > 0 && value <= 1000000000);
+  if (!amounts.length) throw new Error("결제 금액을 찾지 못했습니다.");
+  const amount = amounts[0];
+  const lines = text.split("\n").map(normalizeMerchant).filter(Boolean);
+  const ignored = /(web발신|신한카드|현대카드|승인|취소|일시불|할부|누적|잔액|카드|본인|가족|해외|원화|\d{1,3}(?:,\d{3})*\s*원|\d{1,4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2}\s+\d{1,2}:\d{2}|\*{2,}|\d{4})/i;
+  const merchant = lines
+    .filter(line => !ignored.test(line) && /[가-힣A-Za-z]/.test(line))
+    .sort((a, b) => b.length - a.length)[0] || "카드 결제";
+  const occurredAt = parseOccurredAt(text, receivedAt);
+  return { company, eventType, amount, currency: "KRW", merchant, category: categorizeMerchant(merchant), occurredAt };
+}
+async function profileForImportKey(request, env) {
+  const key = request.headers.get("x-card-import-key") || "";
+  if (!/^[A-Za-z0-9_-]{32,120}$/.test(key)) return null;
+  const row = await env.DB.prepare("SELECT profile FROM card_import_tokens WHERE token_hash = ?")
+    .bind(await sha256(key)).first();
+  return row?.profile || null;
+}
+async function importCardAlert(request, env) {
+  const profile = await profileForImportKey(request, env);
+  if (!profile) return json({ message: "카드 자동등록 키가 올바르지 않습니다." }, 403);
+  let body;
+  try { body = await request.json(); } catch { return json({ message: "요청 형식이 올바르지 않습니다." }, 400); }
+  let parsed;
+  try { parsed = parseCardAlert(body.message, body.receivedAt); } catch (error) { return json({ message: error.message }, 422); }
+  const normalizedMessage = String(body.message || "").replace(/\s+/g, " ").trim();
+  const fingerprint = await sha256(`${profile}|${normalizedMessage}`);
+  const duplicate = await env.DB.prepare("SELECT entry_id FROM card_alert_events WHERE fingerprint = ?").bind(fingerprint).first();
+  if (duplicate) return json({ ok: true, duplicate: true, action: "ignored", parsed });
+  const now = new Date().toISOString();
+  const eventId = crypto.randomUUID();
+  let entryId = null;
+  let action = "saved";
+  if (parsed.eventType === "approval") {
+    entryId = crypto.randomUUID();
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO entries (id, owner, type, amount, currency, spent_on, category, payment, memo, receipt_path, updated_at)
+        VALUES (?, ?, 'expense', ?, ?, ?, ?, ?, ?, NULL, ?)`)
+        .bind(entryId, profile, parsed.amount, parsed.currency, parsed.occurredAt.slice(0, 10), parsed.category, parsed.company, `${parsed.merchant} · 카드 문자 자동등록`, now),
+      env.DB.prepare(`INSERT INTO card_alert_events (id, profile, fingerprint, card_company, event_type, amount, currency, merchant, category, occurred_at, entry_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(eventId, profile, fingerprint, parsed.company, parsed.eventType, parsed.amount, parsed.currency, parsed.merchant, parsed.category, parsed.occurredAt, entryId, now)
+    ]);
+  } else {
+    const original = await env.DB.prepare(`SELECT e.id FROM card_alert_events a JOIN entries e ON e.id = a.entry_id
+      WHERE a.profile = ? AND a.event_type = 'approval' AND a.card_company = ? AND a.amount = ?
+      AND a.merchant = ? AND a.occurred_at >= datetime(?, '-45 days') ORDER BY a.occurred_at DESC LIMIT 1`)
+      .bind(profile, parsed.company, parsed.amount, parsed.merchant, parsed.occurredAt).first();
+    entryId = original?.id || null;
+    const statements = [env.DB.prepare(`INSERT INTO card_alert_events (id, profile, fingerprint, card_company, event_type, amount, currency, merchant, category, occurred_at, entry_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(eventId, profile, fingerprint, parsed.company, parsed.eventType, parsed.amount, parsed.currency, parsed.merchant, parsed.category, parsed.occurredAt, entryId, now)];
+    if (entryId) statements.push(env.DB.prepare("DELETE FROM entries WHERE id = ? AND owner = ?").bind(entryId, profile));
+    else action = "cancellation_unmatched";
+    await env.DB.batch(statements);
+  }
+  return json({ ok: true, duplicate: false, action, parsed });
+}
+
 async function handleAuth(request, env, path) {
   const row = await ensureAuthRow(env);
   if (path[1] === "status" && request.method === "GET") {
@@ -122,6 +235,7 @@ export async function onRequest({ request, env, params }) {
   const path = Array.isArray(params.path) ? params.path : [params.path].filter(Boolean);
   if (path[0] === "health") return json({ ok: true, database: true });
   if (path[0] === "auth") return handleAuth(request, env, path);
+  if (path[0] === "card-alert" && request.method === "POST") return importCardAlert(request, env);
 
   if (path[0] === "receipts" && request.method === "GET" && path.length === 2) {
     const auth = await authRow(env);
@@ -143,6 +257,24 @@ export async function onRequest({ request, env, params }) {
 
   if (path[0] === "data" && request.method === "GET") return json(await loadData(env, profile));
   if (path[0] === "version" && request.method === "GET") return json({ version: await currentVersion(env, profile) });
+  if (path[0] === "card-import" && path[1] === "status" && request.method === "GET") {
+    const row = await env.DB.prepare("SELECT updated_at FROM card_import_tokens WHERE profile = ?").bind(profile).first();
+    return json({ configured: Boolean(row), updatedAt: row?.updated_at || null, endpoint: `${new URL(request.url).origin}/api/card-alert` });
+  }
+  if (path[0] === "card-import" && path[1] === "token" && request.method === "POST") {
+    const token = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+    const now = new Date().toISOString();
+    await env.DB.prepare(`INSERT INTO card_import_tokens (profile, token_hash, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(profile) DO UPDATE SET token_hash=excluded.token_hash, updated_at=excluded.updated_at`)
+      .bind(profile, await sha256(token), now).run();
+    return json({ token, endpoint: `${new URL(request.url).origin}/api/card-alert`, updatedAt: now });
+  }
+  if (path[0] === "card-import" && path[1] === "test" && request.method === "POST") {
+    let body;
+    try { body = await request.json(); } catch { return json({ message: "요청 형식이 올바르지 않습니다." }, 400); }
+    try { return json({ parsed: parseCardAlert(body.message, body.receivedAt) }); }
+    catch (error) { return json({ message: error.message }, 422); }
+  }
   if (path[0] === "settings" && request.method === "POST") {
     const body = await request.json();
     const now = new Date().toISOString();

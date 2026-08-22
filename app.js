@@ -1,7 +1,7 @@
 const CATEGORIES = {
   expense: [
     ["식비", "🍚"], ["카페", "☕"], ["장보기", "🛒"], ["교통", "🚌"],
-    ["주거", "🏠"], ["생활", "🧴"], ["건강", "💊"], ["여가", "🎬"], ["쇼핑", "🎁"], ["기타", "✨"]
+    ["주거", "🏠"], ["생활", "🧴"], ["건강", "💊"], ["여가", "🎬"], ["쇼핑", "🎁"], ["미분류", "?"], ["기타", "✨"]
   ],
   income: [["급여", "💰"], ["용돈", "💌"], ["이자", "🌱"], ["환급", "↩"], ["기타", "✨"]]
 };
@@ -258,6 +258,11 @@ function setupEvents() {
   document.querySelector("#receiptInput").addEventListener("change", analyzeReceipt);
   document.querySelector("#addAccountButton").addEventListener("click", () => openSmallForm("account"));
   document.querySelector("#addRecurringButton").addEventListener("click", () => openSmallForm("recurring"));
+  document.querySelector("#openCardImport").addEventListener("click", openCardImportDialog);
+  document.querySelector("#createCardImportKey").addEventListener("click", createCardImportKey);
+  document.querySelector("#copyCardImportEndpoint").addEventListener("click", () => copyField("cardImportEndpoint", "API 주소를 복사했어요."));
+  document.querySelector("#copyCardImportKey").addEventListener("click", () => copyField("cardImportKey", "자동등록 키를 복사했어요."));
+  document.querySelector("#testCardAlert").addEventListener("click", testCardAlertMessage);
   document.querySelector("#downloadCsv").addEventListener("click", downloadCsv);
   document.querySelector("#downloadMemo").addEventListener("click", downloadMemo);
 }
@@ -325,9 +330,69 @@ async function startApp() {
   document.querySelector("#app").classList.remove("hidden");
   try {
     await reloadRemoteData();
+    await loadCardImportStatus();
     window.remoteStore.subscribe(() => reloadRemoteData().catch(console.error));
   } catch (error) {
     showToast(friendlyError(error));
+  }
+}
+async function loadCardImportStatus() {
+  const badge = document.querySelector("#cardImportBadge");
+  try {
+    const status = await window.remoteStore.cardImportStatus();
+    badge.textContent = status.configured ? "연결됨" : "설정 필요";
+    badge.classList.toggle("active", status.configured);
+    document.querySelector("#cardImportEndpoint").value = status.endpoint || `${location.origin}/api/card-alert`;
+  } catch {
+    badge.textContent = "확인 실패";
+    badge.classList.remove("active");
+  }
+}
+async function openCardImportDialog() {
+  document.querySelector("#cardImportCredentials").classList.add("hidden");
+  document.querySelector("#cardImportKey").value = "";
+  document.querySelector("#cardAlertTestResult").classList.add("hidden");
+  await loadCardImportStatus();
+  document.querySelector("#cardImportDialog").showModal();
+}
+async function createCardImportKey() {
+  const button = document.querySelector("#createCardImportKey");
+  button.disabled = true;
+  try {
+    const data = await window.remoteStore.createCardImportToken();
+    document.querySelector("#cardImportEndpoint").value = data.endpoint;
+    document.querySelector("#cardImportKey").value = data.token;
+    document.querySelector("#cardImportCredentials").classList.remove("hidden");
+    await loadCardImportStatus();
+    showToast("새 자동등록 키를 만들었어요.");
+  } catch (error) { showToast(friendlyError(error)); }
+  finally { button.disabled = false; }
+}
+async function copyField(id, message) {
+  const input = document.querySelector(`#${id}`);
+  if (!input.value) return showToast("먼저 자동등록 키를 만들어주세요.");
+  try {
+    await navigator.clipboard.writeText(input.value);
+    showToast(message);
+  } catch {
+    input.select();
+    showToast("값을 선택했어요. 복사해주세요.");
+  }
+}
+async function testCardAlertMessage() {
+  const message = document.querySelector("#cardAlertTestMessage").value.trim();
+  const result = document.querySelector("#cardAlertTestResult");
+  if (!message) return showToast("카드 승인 문자를 붙여 넣어주세요.");
+  try {
+    const data = await window.remoteStore.testCardAlert(message);
+    const parsed = data.parsed;
+    result.innerHTML = `<b>${escapeHtml(parsed.company)} · ${parsed.eventType === "approval" ? "승인" : "취소"}</b><br>`
+      + `${money(parsed.amount, parsed.currency)} · ${escapeHtml(parsed.merchant)}<br>`
+      + `카테고리: ${escapeHtml(parsed.category)} · ${escapeHtml(parsed.occurredAt.slice(0, 16).replace("T", " "))}`;
+    result.classList.remove("hidden");
+  } catch (error) {
+    result.textContent = friendlyError(error);
+    result.classList.remove("hidden");
   }
 }
 function switchView(id) {

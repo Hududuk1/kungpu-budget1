@@ -93,6 +93,21 @@
     return request("settings", { method: "POST", body: JSON.stringify(data) });
   }
 
+  async function cardImportStatus() {
+    return request("card-import/status");
+  }
+
+  async function createCardImportToken() {
+    return request("card-import/token", { method: "POST", body: JSON.stringify({}) });
+  }
+
+  async function testCardAlert(message) {
+    return request("card-import/test", {
+      method: "POST",
+      body: JSON.stringify({ message, receivedAt: new Date().toISOString() })
+    });
+  }
+
   function subscribe(onChange) {
     clearInterval(pollTimer);
     pollTimer = setInterval(async () => {
@@ -114,6 +129,9 @@
     deleteEntry,
     getReceiptUrl,
     saveSettings,
+    cardImportStatus,
+    createCardImportToken,
+    testCardAlert,
     subscribe
   };
 })();

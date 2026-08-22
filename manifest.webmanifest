@@ -2,7 +2,7 @@
   "name": "꿍푸씨의 가계부",
   "short_name": "꿍푸씨",
   "description": "꿍과 푸가 함께 쓰는 포근한 가계부",
-  "start_url": "./?v=13",
+  "start_url": "./?v=17",
   "display": "standalone",
   "background_color": "#fffbf8",
   "theme_color": "#86b995",

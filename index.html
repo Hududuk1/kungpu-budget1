@@ -7,8 +7,8 @@
   <title>꿍푸씨의 가계부</title>
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png?v=9">
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/app-icon-192.png?v=9">
-  <link rel="manifest" href="./manifest.webmanifest?v=16">
-  <link rel="stylesheet" href="./styles.css?v=16">
+  <link rel="manifest" href="./manifest.webmanifest?v=17">
+  <link rel="stylesheet" href="./styles.css?v=17">
 </head>
 <body>
   <div id="profileScreen" class="gate hidden">
@@ -127,6 +127,14 @@
       <div id="accountList" class="account-list"></div>
       <div class="section-title"><h2>고정지출</h2><button id="addRecurringButton" class="text-button">+ 추가</button></div>
       <div id="recurringList" class="simple-list"></div>
+      <article class="card-import-card">
+        <div class="row">
+          <div><span class="eyebrow">아이폰 자동화</span><h3>카드 문자 자동등록</h3></div>
+          <span id="cardImportBadge" class="status-badge">확인 중</span>
+        </div>
+        <p>신한·현대카드 승인 문자를 단축어로 보내면 금액, 가맹점과 카테고리를 자동 등록해요.</p>
+        <button id="openCardImport" class="secondary" type="button">설정 및 문자 테스트</button>
+      </article>
       <article class="download-card">
         <h3>우리 기록 보관하기</h3>
         <p>엑셀에서 열 수 있는 CSV 또는 읽기 좋은 메모로 내려받아요.</p>
@@ -163,7 +171,7 @@
         <label>날짜<input id="entryDate" type="date" required></label>
         <label>카테고리<select id="entryCategory"></select></label>
       </div>
-      <label>결제수단<select id="entryPayment"><option>신용카드</option><option>체크카드</option><option>현금</option><option>계좌이체</option><option>기타</option></select></label>
+      <label>결제수단<select id="entryPayment"><option>신한카드</option><option>현대카드</option><option>신용카드</option><option>체크카드</option><option>현금</option><option>계좌이체</option><option>기타</option></select></label>
       <label>메모<input id="entryMemo" maxlength="100" placeholder="어디에 사용했나요?"></label>
       <label class="receipt-box">
         <input id="receiptInput" type="file" accept="image/*" capture="environment">
@@ -187,9 +195,40 @@
     </form>
   </dialog>
 
+  <dialog id="cardImportDialog" class="sheet">
+    <div class="sheet-content">
+      <div class="sheet-handle"></div>
+      <div class="row"><h2>카드 문자 자동등록</h2><button type="button" class="close-button" data-close>×</button></div>
+      <p class="dialog-description">현재 로그인한 사용자 전용 키를 아이폰 단축어에 넣어주세요. 새 키를 만들면 이전 키는 즉시 사용할 수 없어요.</p>
+      <button id="createCardImportKey" class="primary" type="button">자동등록 키 만들기</button>
+      <div id="cardImportCredentials" class="credential-box hidden">
+        <label>API 주소<input id="cardImportEndpoint" readonly></label>
+        <button id="copyCardImportEndpoint" class="secondary" type="button">API 주소 복사</button>
+        <label>자동등록 키<input id="cardImportKey" readonly></label>
+        <button id="copyCardImportKey" class="secondary" type="button">키 복사</button>
+        <p class="warning-text">이 키는 지금 한 번만 표시됩니다. 다른 사람에게 공유하지 마세요.</p>
+      </div>
+      <details class="shortcut-guide">
+        <summary>아이폰 단축어 설정 순서</summary>
+        <ol>
+          <li>단축어 앱 → 자동화 → + → 메시지를 선택합니다.</li>
+          <li>신한카드·현대카드 문자 발신자를 선택하고 ‘즉시 실행’을 켭니다.</li>
+          <li>‘URL 콘텐츠 가져오기’를 추가하고 위 API 주소를 입력합니다.</li>
+          <li>방식은 POST, 헤더 이름은 <code>X-Card-Import-Key</code>, 값은 위 키로 설정합니다.</li>
+          <li>JSON 본문에 <code>message</code>는 ‘단축어 입력’, <code>receivedAt</code>은 ‘현재 날짜’를 넣습니다.</li>
+        </ol>
+      </details>
+      <label>승인 문자 테스트
+        <textarea id="cardAlertTestMessage" rows="7" placeholder="신한카드 또는 현대카드 승인 문자를 붙여 넣으세요."></textarea>
+      </label>
+      <button id="testCardAlert" class="secondary" type="button">문자 분석 테스트</button>
+      <div id="cardAlertTestResult" class="test-result hidden"></div>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="./remote-store.js?v=16"></script>
-  <script src="./app.js?v=16"></script>
+  <script src="./remote-store.js?v=17"></script>
+  <script src="./app.js?v=17"></script>
 </body>
 </html>
