@@ -9,10 +9,15 @@ const COLORS = {
   "개인": "#f1a8b8",
   "기타": "#91a39a"
 };
+const PERSON_COLORS = {
+  "꿍": "#e59ab0",
+  "푸": "#86b995",
+  "둘": "#9eb9db"
+};
 const state = {
   current: startOfMonth(new Date()),
   selected: dateKey(new Date()),
-  writer: localStorage.getItem("kungpu-calendar-writer") || "둘",
+  writer: localStorage.getItem("kungpu-calendar-user") || "",
   filter: localStorage.getItem("kungpu-calendar-filter") || "all",
   events: [],
   memo: localStorage.getItem("kungpu-calendar-memo") || "",
@@ -47,6 +52,9 @@ function eventsFor(date) { return visibleEvents().filter(event => event.starts_o
 function timeText(event) {
   if (event.all_day) return "하루 종일";
   return [event.start_time, event.end_time].filter(Boolean).map(time => time.slice(0, 5)).join(" - ") || "시간 미정";
+}
+function personColor(event) {
+  return PERSON_COLORS[event.person] || event.color || COLORS[event.category] || COLORS["기타"];
 }
 function showToast(message) {
   const toast = $("#toast");
@@ -169,7 +177,7 @@ function renderCalendar() {
     days.push(`
       <button class="day ${day.getMonth() !== month ? "outside" : ""} ${key === todayKey() ? "today" : ""} ${key === state.selected ? "selected" : ""}" type="button" data-date="${key}">
         <span class="day-number">${day.getDate()}</span>
-        <span class="dots">${list.map(event => `<i class="dot" style="background:${event.color || COLORS[event.category] || COLORS["기타"]}"></i>`).join("")}</span>
+        <span class="dots">${list.map(event => `<i class="dot" style="background:${personColor(event)}"></i>`).join("")}</span>
       </button>
     `);
   }
@@ -202,12 +210,12 @@ function eventCard(event) {
   ].filter(Boolean).join(" · ");
   return `
     <article class="event-card" data-id="${event.id}">
-      <i class="event-bar" style="background:${event.color || COLORS[event.category] || COLORS["기타"]}"></i>
+      <i class="event-bar" style="background:${personColor(event)}"></i>
       <div>
         <b>${escapeHtml(event.title)}</b>
         <small>${escapeHtml(event.category)} · ${escapeHtml(detail)}</small>
       </div>
-      <span class="event-person">${escapeHtml(event.person)}</span>
+      <span class="event-person" style="background:${personColor(event)}">${escapeHtml(event.person)}</span>
     </article>
   `;
 }
@@ -224,7 +232,7 @@ function openEvent(event = null) {
   $("#eventId").value = event?.id || "";
   $("#eventTitle").value = event?.title || "";
   $("#eventDate").value = event?.starts_on || state.selected || todayKey();
-  $("#eventPerson").value = event?.person || state.writer;
+  $("#eventPerson").value = event?.person || state.writer || "꿍";
   $("#eventCategory").value = event?.category || "데이트";
   $("#eventLocation").value = event?.location || "";
   $("#eventMemo").value = event?.memo || "";
@@ -324,9 +332,17 @@ function setupEvents() {
     }
   });
   $("#downloadMemo").addEventListener("click", downloadMemo);
+  $all("[data-user-choice]").forEach(button => button.addEventListener("click", () => {
+    state.writer = button.dataset.userChoice;
+    localStorage.setItem("kungpu-calendar-user", state.writer);
+    localStorage.setItem("kungpu-calendar-writer", state.writer);
+    $("#welcomeDialog").close();
+    render();
+  }));
 }
 
 setupEvents();
 render();
+if (!state.writer) $("#welcomeDialog").showModal();
 initStore().catch(error => showToast(error.message || "일정을 불러오지 못했어요."));
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("./sw.js");
