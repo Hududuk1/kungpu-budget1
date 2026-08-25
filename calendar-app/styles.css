@@ -257,9 +257,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
   transition: .2s;
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
-@media (max-width: 380px) {
+@media (max-width: 520px) {
   .app { padding-inline: 14px; }
   .day { min-height: 56px; padding: 6px 4px; }
   .field-grid { grid-template-columns: 1fr; }
+  input, select, textarea { min-width: 0; }
   .floating-add { left: auto; right: 18px; transform: none; }
 }
