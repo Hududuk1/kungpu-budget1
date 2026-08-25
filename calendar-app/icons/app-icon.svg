@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="128" fill="#86b995"/>
+  <circle cx="156" cy="166" r="34" fill="#fbfdf8"/>
+  <circle cx="356" cy="166" r="34" fill="#fbfdf8"/>
+  <rect x="104" y="126" width="304" height="290" rx="48" fill="#fbfdf8"/>
+  <rect x="104" y="126" width="304" height="92" rx="48" fill="#dcefdc"/>
+  <text x="256" y="324" text-anchor="middle" font-size="82" font-weight="900" font-family="Arial, sans-serif" fill="#568568">꿍푸</text>
+  <path d="M178 382c42 26 114 26 156 0" fill="none" stroke="#86b995" stroke-width="22" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "name": "꿍푸씨의 캘린더",
+  "short_name": "꿍푸캘린더",
+  "description": "꿍과 푸가 함께 쓰는 포근한 공유 캘린더",
+  "start_url": "./?v=1",
+  "display": "standalone",
+  "background_color": "#fbfdf8",
+  "theme_color": "#86b995",
+  "icons": [
+    {
+      "src": "./icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

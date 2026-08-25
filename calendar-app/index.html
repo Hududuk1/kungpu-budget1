@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#86b995">
+  <title>꿍푸씨의 캘린더</title>
+  <link rel="manifest" href="./manifest.webmanifest?v=1">
+  <link rel="icon" type="image/svg+xml" href="./icons/app-icon.svg?v=1">
+  <link rel="stylesheet" href="./styles.css?v=1">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <span class="eyebrow">꿍푸씨의 공유 캘린더</span>
+        <h1 id="monthTitle">우리의 일정</h1>
+      </div>
+      <button id="todayButton" class="avatar" type="button" aria-label="오늘로 이동">오늘</button>
+    </header>
+
+    <section class="hero-card">
+      <div>
+        <p id="todayLabel">오늘</p>
+        <strong id="todaySummary">일정을 불러오는 중이에요</strong>
+      </div>
+      <button id="quickAdd" class="hero-add" type="button">+ 일정</button>
+    </section>
+
+    <section class="toolbar">
+      <div class="profile-toggle" aria-label="작성자 선택">
+        <button class="active" type="button" data-writer="둘">둘</button>
+        <button type="button" data-writer="꿍">꿍</button>
+        <button type="button" data-writer="푸">푸</button>
+      </div>
+      <div class="filter-row" aria-label="표시 필터">
+        <button class="active" type="button" data-filter="all">전체</button>
+        <button type="button" data-filter="둘">둘</button>
+        <button type="button" data-filter="꿍">꿍</button>
+        <button type="button" data-filter="푸">푸</button>
+      </div>
+    </section>
+
+    <section id="monthView" class="view active">
+      <div class="calendar-card">
+        <div class="month-nav">
+          <button id="prevMonth" class="icon-button" type="button" aria-label="이전 달">‹</button>
+          <b id="calendarMonth"></b>
+          <button id="nextMonth" class="icon-button" type="button" aria-label="다음 달">›</button>
+        </div>
+        <div class="weekdays" aria-hidden="true">
+          <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </div>
+
+      <section class="section-title">
+        <h2 id="selectedTitle">선택한 날</h2>
+        <button id="addSelected" class="text-button" type="button">추가</button>
+      </section>
+      <div id="dayList" class="event-list"></div>
+    </section>
+
+    <section id="listView" class="view">
+      <section class="section-title">
+        <h2>다가오는 일정</h2>
+        <button id="downloadMemo" class="text-button" type="button">메모 저장</button>
+      </section>
+      <div id="upcomingList" class="event-list roomy"></div>
+    </section>
+
+    <section id="memoView" class="view">
+      <section class="section-title">
+        <h2>빠른 메모</h2>
+      </section>
+      <div class="note-card">
+        <textarea id="sharedMemo" placeholder="둘이 같이 기억할 내용을 적어두세요. 예: 이번 주 장보기, 병원 예약 준비물"></textarea>
+        <button id="saveMemo" class="primary" type="button">메모 저장</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="active" type="button" data-view="monthView">달력</button>
+    <button type="button" data-view="listView">일정</button>
+    <button type="button" data-view="memoView">메모</button>
+  </nav>
+
+  <button id="floatingAdd" class="floating-add" type="button" aria-label="일정 추가">+</button>
+
+  <dialog id="eventDialog">
+    <form id="eventForm" method="dialog">
+      <div class="dialog-head">
+        <div>
+          <span class="eyebrow">새 일정</span>
+          <h2 id="formTitle">일정 추가</h2>
+        </div>
+        <button class="close-button" type="button" data-close>×</button>
+      </div>
+      <input id="eventId" type="hidden">
+      <label>제목
+        <input id="eventTitle" required maxlength="80" placeholder="무슨 일정인가요?">
+      </label>
+      <div class="field-grid">
+        <label>날짜
+          <input id="eventDate" type="date" required>
+        </label>
+        <label>누구 일정?
+          <select id="eventPerson">
+            <option>둘</option>
+            <option>꿍</option>
+            <option>푸</option>
+          </select>
+        </label>
+      </div>
+      <div class="all-day-row">
+        <label class="check-label"><input id="eventAllDay" type="checkbox" checked> 하루 종일</label>
+      </div>
+      <div id="timeFields" class="field-grid hidden">
+        <label>시작
+          <input id="eventStart" type="time">
+        </label>
+        <label>끝
+          <input id="eventEnd" type="time">
+        </label>
+      </div>
+      <div class="field-grid">
+        <label>분류
+          <select id="eventCategory">
+            <option>데이트</option>
+            <option>집안일</option>
+            <option>병원</option>
+            <option>가족</option>
+            <option>기념일</option>
+            <option>여행</option>
+            <option>개인</option>
+            <option>기타</option>
+          </select>
+        </label>
+        <label>장소
+          <input id="eventLocation" maxlength="80" placeholder="장소가 있으면 입력">
+        </label>
+      </div>
+      <label>메모
+        <textarea id="eventMemo" rows="3" maxlength="300" placeholder="준비물, 링크, 참고할 내용"></textarea>
+      </label>
+      <button class="primary" type="submit">저장</button>
+      <button id="deleteEvent" class="danger hidden" type="button">삭제</button>
+    </form>
+  </dialog>
+
+  <div id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js?v=1"></script>
+  <script src="./app.js?v=1"></script>
+</body>
+</html>
